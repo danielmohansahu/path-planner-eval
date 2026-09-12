@@ -24,6 +24,6 @@ matplotlib = "*"
 [tasks]
 configure = "cmake -B build -S src/cpp -G Ninja"
 build-ext = { depends-on = ["configure"], cmd = "cmake --build build" }
-setup = "mkdir -p data/maps/bg data/maps/sc1 data/maps/wc3 && unzip -o -q bgmaps-map.zip -d data/maps/bg && unzip -o -q bgmaps-scen.zip -d data/maps/bg && unzip -o -q sc1-map.zip -d data/maps/sc1 && unzip -o -q sc1-scen.zip -d data/maps/sc1 && unzip -o -q wc3maps512-map.zip -d data/maps/wc3 && unzip -o -q wc3maps512-scen.zip -d data/maps/wc3"
-app = { depends-on = ["build-ext"], cmd = "PYTHONPATH=src/python streamlit run src/python/app/app.py" }
+setup = "mkdir -p data/maps/wc3 && unzip -o -q data/raw/wc3maps512-map.zip -d data/maps/wc3 && unzip -o -q data/raw/wc3maps512-scen.zip -d data/maps/wc3"
+app = { depends-on = ["build-ext"], cmd = "PYTHONPATH=src/python:src/python/eval streamlit run src/python/app/app.py" }
 lint = "pre-commit run --all-files"
