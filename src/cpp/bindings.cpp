@@ -26,9 +26,10 @@ NB_MODULE(planner_core, m) {
 
   m.def(
       "plan_a_star",
-      [](GridArray grid_arr, std::pair<int, int> start,
-         std::pair<int, int> goal, int connectivity, float heuristic_weight) {
-        Grid grid(grid_arr.data(), grid_arr.shape(0), grid_arr.shape(1));
+      [](GridArray grid_arr, Coord start, Coord goal, int connectivity,
+         float heuristic_weight) {
+        Grid grid(std::span<const uint8_t>(grid_arr.data(), grid_arr.shape(0)),
+                  grid_arr.shape(0), grid_arr.shape(1));
         return plan_a_star(grid, start, goal, connectivity, heuristic_weight);
       },
       nb::arg("grid"), nb::arg("start"), nb::arg("goal"),
@@ -36,9 +37,9 @@ NB_MODULE(planner_core, m) {
 
   m.def(
       "plan_dijkstra",
-      [](GridArray grid_arr, std::pair<int, int> start,
-         std::pair<int, int> goal, int connectivity) {
-        Grid grid(grid_arr.data(), grid_arr.shape(0), grid_arr.shape(1));
+      [](GridArray grid_arr, Coord start, Coord goal, int connectivity) {
+        Grid grid(std::span<const uint8_t>(grid_arr.data(), grid_arr.shape(0)),
+                  grid_arr.shape(0), grid_arr.shape(1));
         return plan_dijkstra(grid, start, goal, connectivity);
       },
       nb::arg("grid"), nb::arg("start"), nb::arg("goal"),
@@ -46,10 +47,10 @@ NB_MODULE(planner_core, m) {
 
   m.def(
       "plan_ara_star",
-      [](GridArray grid_arr, std::pair<int, int> start,
-         std::pair<int, int> goal, int connectivity, float initial_weight,
-         float weight_decay) {
-        Grid grid(grid_arr.data(), grid_arr.shape(0), grid_arr.shape(1));
+      [](GridArray grid_arr, Coord start, Coord goal, int connectivity,
+         float initial_weight, float weight_decay) {
+        Grid grid(std::span<const uint8_t>(grid_arr.data(), grid_arr.shape(0)),
+                  grid_arr.shape(0), grid_arr.shape(1));
         return plan_ara_star(grid, start, goal, connectivity, initial_weight,
                              weight_decay);
       },
@@ -61,7 +62,8 @@ NB_MODULE(planner_core, m) {
       "plan_rrt",
       [](GridArray grid_arr, std::pair<int, int> start,
          std::pair<int, int> goal, int max_iterations, float step_size) {
-        Grid grid(grid_arr.data(), grid_arr.shape(0), grid_arr.shape(1));
+        Grid grid(std::span<const uint8_t>(grid_arr.data(), grid_arr.shape(0)),
+                  grid_arr.shape(0), grid_arr.shape(1));
         return plan_rrt(grid, start, goal, max_iterations, step_size);
       },
       nb::arg("grid"), nb::arg("start"), nb::arg("goal"),
