@@ -21,6 +21,7 @@ nanobind_add_module(
     planners/dijkstra.cpp
     planners/ara_star.cpp
     planners/rrt.cpp
+    parallel_eval.cpp
 )
 
 set_target_properties(planner_core PROPERTIES

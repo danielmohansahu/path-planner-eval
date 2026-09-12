@@ -5,6 +5,7 @@
 #include <nanobind/stl/vector.h>
 
 #include "grid.hpp"
+#include "parallel_eval.hpp"
 #include "planner.hpp"
 #include "planners/a_star.hpp"
 #include "planners/ara_star.hpp"
@@ -66,4 +67,22 @@ NB_MODULE(planner_core, m) {
       },
       nb::arg("grid"), nb::arg("start"), nb::arg("goal"),
       nb::arg("max_iterations") = 10000, nb::arg("step_size") = 5.0f);
+
+  m.def(
+      "parallel_plan_dijkstra",
+      [](GridArray grid_arr, nb::list task_list, int connectivity) {
+        Grid grid(grid_arr.data(), grid_arr.shape(0), grid_arr.shape(1));
+
+        std::vector<EvalTask> tasks;
+        for (auto item : task_list) {
+          auto t = nb::cast<nb::tuple>(item);
+          tasks.push_back({nb::cast<std::pair<int, int>>(t[0]),
+                           nb::cast<std::pair<int, int>>(t[1])});
+        }
+
+        DijkstraPlanner planner(connectivity);
+        nb::gil_scoped_release release;
+        return parallel_evaluate(grid, tasks, planner);
+      },
+      nb::arg("grid"), nb::arg("tasks"), nb::arg("connectivity") = 8);
 }
