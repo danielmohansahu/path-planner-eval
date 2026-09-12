@@ -2,24 +2,19 @@
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import numpy as np
 import streamlit as st
 
-from eval import (
-    compare_algorithms,
-    get_bundled_scenarios,
-    run_evaluation,
-    run_single_evaluation,
-)
+from eval import get_bundled_scenarios, run_single_evaluation
 
 st.set_page_config(page_title="Path Planner Eval", layout="wide")
 st.title("Path Planning Evaluation")
 
-# ── Map colormap ──────────────────────────────────────────────────
 _CMAP = mcolors.ListedColormap(["white", "khaki", "black"])
 _NORM = mcolors.BoundaryNorm([0, 1, 200, 255], _CMAP.N)
+_PATH_COLORS = ["#1f77b4", "#2ca02c", "#ff7f0e", "#9467bd"]
 
 
-# ── Load scenarios ────────────────────────────────────────────────
 @st.cache_data(show_spinner="Loading benchmark maps...")
 def _load_scenarios():
     return get_bundled_scenarios()
@@ -32,15 +27,26 @@ st.sidebar.header("Configuration")
 
 map_names = sorted(all_scenarios.keys())
 selected_map = st.sidebar.selectbox("Map", map_names)
-
 map_scenarios = all_scenarios[selected_map]
-max_scenarios = st.sidebar.slider(
-    "Scenarios to evaluate",
-    min_value=1,
-    max_value=min(50, len(map_scenarios)),
-    value=min(10, len(map_scenarios)),
+
+# Scenario picker — default to mid-range difficulty
+scenario_labels = []
+for s in map_scenarios:
+    dist = ((s.start[0] - s.goal[0]) ** 2 + (s.start[1] - s.goal[1]) ** 2) ** 0.5
+    scenario_labels.append(f"{s.name}  (dist={dist:.0f}, optimal={s.optimal_cost:.1f})")
+
+optimal_costs = [s.optimal_cost for s in map_scenarios]
+default_idx = int(
+    np.argmin([abs(c - float(np.median(optimal_costs))) for c in optimal_costs])
 )
-scenarios = map_scenarios[:max_scenarios]
+
+viz_idx = st.sidebar.selectbox(
+    "Scenario",
+    range(len(map_scenarios)),
+    index=default_idx,
+    format_func=lambda i: scenario_labels[i],
+)
+scenario = map_scenarios[viz_idx]
 
 st.sidebar.subheader("Algorithms")
 
@@ -83,8 +89,6 @@ if use_rrt:
         ss = st.slider("Step size", 1.0, 20.0, 5.0, 0.5, key="rrt_ss")
         planner_params["RRT"] = {"max_iterations": mi, "step_size": ss}
 
-num_runs = st.sidebar.slider("Runs per scenario", 1, 10, 1)
-
 run_button = st.sidebar.button(
     "Run Evaluation",
     type="primary",
@@ -94,100 +98,71 @@ run_button = st.sidebar.button(
 # ── Map Preview ───────────────────────────────────────────────────
 st.subheader(f"Map: {selected_map}")
 
-first_scenario = scenarios[0]
-grid = first_scenario.grid
-
+grid = scenario.grid
 fig_map, ax_map = plt.subplots(figsize=(8, 8))
 ax_map.imshow(grid, cmap=_CMAP, norm=_NORM, interpolation="nearest")
-ax_map.plot(
-    first_scenario.start[1], first_scenario.start[0], "go", markersize=8, label="Start"
-)
-ax_map.plot(
-    first_scenario.goal[1], first_scenario.goal[0], "r*", markersize=10, label="Goal"
-)
+ax_map.plot(scenario.start[1], scenario.start[0], "go", markersize=8, label="Start")
+ax_map.plot(scenario.goal[1], scenario.goal[0], "r*", markersize=10, label="Goal")
 ax_map.legend(loc="upper right")
-ax_map.set_title(f"{selected_map} ({grid.shape[1]}x{grid.shape[0]})")
-ax_map.set_xlabel("col")
-ax_map.set_ylabel("row")
+ax_map.set_title(f"{selected_map} ({grid.shape[1]}×{grid.shape[0]})")
+ax_map.set_xticks([])
+ax_map.set_yticks([])
 st.pyplot(fig_map)
 plt.close(fig_map)
 
 # ── Evaluation ────────────────────────────────────────────────────
 if run_button:
+    results = []
     with st.spinner("Running evaluation..."):
-        df = run_evaluation(
-            planners=selected_planners,
-            scenarios=scenarios,
-            planner_params=planner_params,
-            num_runs=num_runs,
-        )
+        for algo in selected_planners:
+            results.append(
+                run_single_evaluation(algo, scenario, planner_params.get(algo, {}))
+            )
 
-    st.subheader("Algorithm Comparison")
-    comparison = compare_algorithms(df)
-    st.dataframe(comparison, use_container_width=True)
-
-    st.subheader("Detailed Results")
-    display_cols = [
-        "algorithm",
-        "scenario_name",
-        "solved",
-        "cost",
-        "planning_time_ms",
-        "nodes_expanded",
-        "optimal_cost",
-        "optimality_ratio",
-    ]
-    st.dataframe(
-        df[display_cols].round(4),
-        use_container_width=True,
-        height=300,
-    )
-
-    # ── Path Visualization (first scenario) ───────────────────
-    st.subheader("Path Visualization (Scenario 1)")
-    colors = ["#1f77b4", "#2ca02c", "#ff7f0e", "#9467bd"]
-
+    # ── Path Visualization ────────────────────────────────────
+    st.subheader(f"Paths: {scenario.name}")
     fig_path, ax_path = plt.subplots(figsize=(8, 8))
     ax_path.imshow(grid, cmap=_CMAP, norm=_NORM, interpolation="nearest")
 
-    for i, algo in enumerate(selected_planners):
-        result = run_single_evaluation(
-            algo, first_scenario, planner_params.get(algo, {})
-        )
-        if result.solved and result.path:
-            rows = [p[0] for p in result.path]
-            cols = [p[1] for p in result.path]
+    for i, r in enumerate(results):
+        if r.solved and r.path:
+            rows = [p[0] for p in r.path]
+            cols = [p[1] for p in r.path]
             ax_path.plot(
                 cols,
                 rows,
-                color=colors[i % len(colors)],
+                color=_PATH_COLORS[i % len(_PATH_COLORS)],
                 linewidth=2,
                 alpha=0.7,
-                label=f"{algo} (cost={result.cost:.1f})",
+                label=f"{r.algorithm} (cost={r.cost:.1f})",
             )
 
-    ax_path.plot(first_scenario.start[1], first_scenario.start[0], "go", markersize=10)
-    ax_path.plot(first_scenario.goal[1], first_scenario.goal[0], "r*", markersize=12)
+    ax_path.plot(scenario.start[1], scenario.start[0], "go", markersize=10)
+    ax_path.plot(scenario.goal[1], scenario.goal[0], "r*", markersize=12)
     ax_path.legend(loc="upper right")
-    ax_path.set_title("Planned Paths")
+    ax_path.set_title(f"Planned Paths — {scenario.name}")
+    ax_path.set_xticks([])
+    ax_path.set_yticks([])
     st.pyplot(fig_path)
     plt.close(fig_path)
 
-    # ── Comparison Charts ─────────────────────────────────────
-    st.subheader("Metric Comparison")
-    metrics = [
-        ("mean_time_ms", "Planning Time (ms)"),
-        ("mean_cost", "Path Cost"),
-        ("mean_nodes_expanded", "Nodes Expanded"),
-    ]
-    chart_cols = st.columns(len(metrics))
-    for col_widget, (metric, title) in zip(chart_cols, metrics):
-        with col_widget:
-            fig_bar, ax_bar = plt.subplots(figsize=(4, 3))
-            comparison[metric].plot(kind="bar", ax=ax_bar, color="steelblue")
-            ax_bar.set_title(title)
-            ax_bar.set_ylabel(metric)
-            ax_bar.tick_params(axis="x", rotation=45)
-            fig_bar.tight_layout()
-            st.pyplot(fig_bar)
-            plt.close(fig_bar)
+    # ── Results Table ─────────────────────────────────────────
+    st.subheader("Results")
+    st.dataframe(
+        [
+            {
+                "Algorithm": r.algorithm,
+                "Solved": r.solved,
+                "Cost": round(r.cost, 2),
+                "Time (ms)": round(r.planning_time_ms, 3),
+                "Nodes Expanded": r.nodes_expanded,
+                "Optimal Cost": round(r.optimal_cost, 2),
+                "Optimality Ratio": round(r.optimality_ratio, 4)
+                if r.optimality_ratio != float("inf")
+                else "—",
+            }
+            for r in results
+        ],
+        use_container_width=True,
+        hide_index=True,
+    )

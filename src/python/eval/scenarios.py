@@ -14,8 +14,6 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _DATA_DIR = _PROJECT_ROOT / "data" / "maps"
 
 _BENCHMARK_SETS = {
-    "bg": ("bgmaps-map.zip", "bgmaps-scen.zip"),
-    "sc1": ("sc1-map.zip", "sc1-scen.zip"),
     "wc3": ("wc3maps512-map.zip", "wc3maps512-scen.zip"),
 }
 

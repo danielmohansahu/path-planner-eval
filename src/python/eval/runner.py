@@ -1,10 +1,8 @@
-"""Evaluation runner: runs planners against scenarios and collects results."""
+"""Evaluation runner: runs a planner against a scenario."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-
-import pandas as pd
 
 import planner_core
 
@@ -29,8 +27,6 @@ _PLANNER_REGISTRY: dict[str, dict] = {
     },
 }
 
-AVAILABLE_PLANNERS = list(_PLANNER_REGISTRY.keys())
-
 
 @dataclass
 class EvalResult:
@@ -38,7 +34,6 @@ class EvalResult:
 
     algorithm: str
     scenario_name: str
-    map_name: str
     path: list[tuple[int, int]]
     cost: float
     nodes_expanded: int
@@ -48,15 +43,16 @@ class EvalResult:
     optimality_ratio: float
 
 
-def _run_single(
+def run_single_evaluation(
     algorithm: str,
     scenario: Scenario,
-    params: dict,
+    params: dict | None = None,
 ) -> EvalResult:
+    """Run a single planner on a single scenario."""
     entry = _PLANNER_REGISTRY[algorithm]
     func = getattr(planner_core, entry["func"])
 
-    merged = {**entry["params"], **params}
+    merged = {**entry["params"], **(params or {})}
     result = func(scenario.grid, scenario.start, scenario.goal, **merged)
 
     if result.solved and scenario.optimal_cost > 0:
@@ -67,7 +63,6 @@ def _run_single(
     return EvalResult(
         algorithm=algorithm,
         scenario_name=scenario.name,
-        map_name=scenario.map_name,
         path=list(result.path),
         cost=result.cost,
         nodes_expanded=result.nodes_expanded,
@@ -76,46 +71,3 @@ def _run_single(
         optimal_cost=scenario.optimal_cost,
         optimality_ratio=optimality_ratio,
     )
-
-
-def run_single_evaluation(
-    algorithm: str,
-    scenario: Scenario,
-    params: dict | None = None,
-) -> EvalResult:
-    """Run a single planner on a single scenario. Returns full EvalResult with path."""
-    return _run_single(algorithm, scenario, params or {})
-
-
-def run_evaluation(
-    planners: list[str],
-    scenarios: list[Scenario],
-    planner_params: dict[str, dict] | None = None,
-    num_runs: int = 1,
-) -> pd.DataFrame:
-    """Run selected planners against scenarios and return results as DataFrame."""
-    if planner_params is None:
-        planner_params = {}
-
-    rows = []
-    for algo in planners:
-        params = planner_params.get(algo, {})
-        for scenario in scenarios:
-            for run_idx in range(num_runs):
-                result = _run_single(algo, scenario, params)
-                rows.append(
-                    {
-                        "algorithm": result.algorithm,
-                        "scenario_name": result.scenario_name,
-                        "map_name": result.map_name,
-                        "cost": result.cost,
-                        "nodes_expanded": result.nodes_expanded,
-                        "planning_time_ms": result.planning_time_ms,
-                        "solved": result.solved,
-                        "optimal_cost": result.optimal_cost,
-                        "optimality_ratio": result.optimality_ratio,
-                        "run_index": run_idx,
-                    }
-                )
-
-    return pd.DataFrame(rows)
