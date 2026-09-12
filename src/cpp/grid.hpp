@@ -3,22 +3,28 @@
 #include <utility>
 #include <vector>
 
+namespace path_planner {
+
+inline constexpr int kImpassableThreshold = 254;
+
 class Grid {
 public:
   Grid(const uint8_t *data, int height, int width)
       : data_(data), height_(height), width_(width) {}
 
-  int height() const { return height_; }
-  int width() const { return width_; }
+  [[nodiscard]] int height() const { return height_; }
+  [[nodiscard]] int width() const { return width_; }
 
-  bool isValid(int r, int c) const {
+  [[nodiscard]] bool isValid(int r, int c) const {
     return r >= 0 && r < height_ && c >= 0 && c < width_;
   }
 
-  uint8_t cost(int r, int c) const { return data_[r * width_ + c]; }
+  [[nodiscard]] uint8_t cost(int r, int c) const {
+    return data_[r * width_ + c];
+  }
 
-  bool isPassable(int r, int c) const {
-    return isValid(r, c) && cost(r, c) < 254;
+  [[nodiscard]] bool isPassable(int r, int c) const {
+    return isValid(r, c) && cost(r, c) < kImpassableThreshold;
   }
 
   std::vector<std::pair<int, int>> neighbors(int r, int c,
@@ -49,3 +55,5 @@ private:
   int height_;
   int width_;
 };
+
+} // namespace path_planner
