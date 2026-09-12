@@ -1,0 +1,35 @@
+[project]
+name = "path-planner-eval"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64", "win-64"] 
+
+[dependencies]
+# System-level C++ Toolchain & Linting
+cxx-compiler = "*"
+cmake = ">=3.26"
+ninja = "*"
+pre-commit = "*"
+clang-format = "*"
+
+# Python & C++ Interop
+python = ">=3.11"
+nanobind = "*"
+
+[pypi-dependencies]
+# Standard Python ecosystem 
+fastapi = "*"
+uvicorn = "*"
+pydantic = "*"
+
+[tasks]
+# Configure CMake pointing to the nested C++ directory
+configure = "cmake -B build -S src/cpp -G Ninja"
+
+# Build the C++ extension
+build-ext = "cmake --build build"
+
+# Start the FastAPI server (depends-on ensures C++ is compiled first)
+serve = { depends-on = ["build-ext"], cmd = "uvicorn src.python.server.main:app --reload" }
+
+# Run linters across both languages
+lint = "pre-commit run --all-files"
