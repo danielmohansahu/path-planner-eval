@@ -79,3 +79,5 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Extracted benchmark maps (regenerated from zips via `pixi run setup`)
+data/maps/

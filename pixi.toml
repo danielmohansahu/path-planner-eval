@@ -1,7 +1,7 @@
-[project]
+[workspace]
 name = "path-planner-eval"
 channels = ["conda-forge"]
-platforms = ["linux-64", "osx-arm64", "win-64"] 
+platforms = ["linux-64", "osx-arm64", "win-64"]
 
 [dependencies]
 # System-level C++ Toolchain & Linting
@@ -16,20 +16,14 @@ python = ">=3.11"
 nanobind = "*"
 
 [pypi-dependencies]
-# Standard Python ecosystem 
-fastapi = "*"
-uvicorn = "*"
-pydantic = "*"
+streamlit = "*"
+numpy = "*"
+pandas = "*"
+matplotlib = "*"
 
 [tasks]
-# Configure CMake pointing to the nested C++ directory
 configure = "cmake -B build -S src/cpp -G Ninja"
-
-# Build the C++ extension
-build-ext = "cmake --build build"
-
-# Start the FastAPI server (depends-on ensures C++ is compiled first)
-serve = { depends-on = ["build-ext"], cmd = "uvicorn src.python.server.main:app --reload" }
-
-# Run linters across both languages
+build-ext = { depends-on = ["configure"], cmd = "cmake --build build" }
+setup = "mkdir -p data/maps/bg data/maps/sc1 data/maps/wc3 && unzip -o -q bgmaps-map.zip -d data/maps/bg && unzip -o -q bgmaps-scen.zip -d data/maps/bg && unzip -o -q sc1-map.zip -d data/maps/sc1 && unzip -o -q sc1-scen.zip -d data/maps/sc1 && unzip -o -q wc3maps512-map.zip -d data/maps/wc3 && unzip -o -q wc3maps512-scen.zip -d data/maps/wc3"
+app = { depends-on = ["build-ext"], cmd = "PYTHONPATH=src/python streamlit run src/python/app/app.py" }
 lint = "pre-commit run --all-files"
