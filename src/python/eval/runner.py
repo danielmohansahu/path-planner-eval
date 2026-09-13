@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pandas as pd
 import planner_core
 
 from .scenarios import Scenario
@@ -71,3 +72,41 @@ def run_single_evaluation(
         optimal_cost=scenario.optimal_cost,
         optimality_ratio=optimality_ratio,
     )
+
+
+def run_evaluation_parallel(
+    scenarios: list[Scenario],
+    planner_params: dict[str, dict] | None = None,
+) -> pd.DataFrame:
+    """Run Dijkstra evaluation in parallel using C++ thread pool."""
+    params = planner_params or {}
+    dijkstra_params = params.get("Dijkstra", {})
+    connectivity = dijkstra_params.get("connectivity", 8)
+
+    task_list = [(s.start, s.goal) for s in scenarios]
+    grid = scenarios[0].grid
+
+    results = planner_core.parallel_plan_dijkstra(grid, task_list, connectivity)
+
+    rows = []
+    for scenario, result in zip(scenarios, results):
+        if result.solved and scenario.optimal_cost > 0:
+            optimality_ratio = result.cost / scenario.optimal_cost
+        else:
+            optimality_ratio = float("inf")
+
+        rows.append(
+            {
+                "algorithm": "Dijkstra",
+                "scenario_name": scenario.name,
+                "map_name": scenario.map_name,
+                "cost": result.cost,
+                "nodes_expanded": result.nodes_expanded,
+                "planning_time_ms": result.planning_time_ms,
+                "solved": result.solved,
+                "optimal_cost": scenario.optimal_cost,
+                "optimality_ratio": optimality_ratio,
+            }
+        )
+
+    return pd.DataFrame(rows)
